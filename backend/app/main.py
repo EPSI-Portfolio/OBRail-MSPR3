@@ -1,0 +1,56 @@
+"""
+ObRail Europe API
+=================
+Main FastAPI application entry point.
+
+Endpoints:
+    GET /api/v1/trajets           - list routes with filters
+    GET /api/v1/trajets/{id}      - single route detail
+    GET /api/v1/stats/volumes     - day/night volumes by country
+    GET /api/v1/stats/co2         - CO2 savings statistics
+    GET /api/v1/health            - health check for monitoring
+    GET /api/v1/docs              - auto-generated Swagger UI
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.v1.router import router
+from app.core.config import settings
+from app.core.logging import setup_logging, logger
+
+setup_logging()
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    description=(
+        "REST API exposing European train route data with CO2 impact analysis. "
+        "Built for ObRail Europe as part of MSPR 3."
+    ),
+    version=settings.APP_VERSION,
+    docs_url="/api/v1/docs",
+    redoc_url="/api/v1/redoc",
+    openapi_url="/api/v1/openapi.json"
+)
+
+# CORS — allows the React frontend to call the API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register all routes under /api/v1
+app.include_router(router, prefix=settings.API_PREFIX)
+
+
+@app.on_event("startup")
+async def startup():
+    logger.info("ObRail Europe API started")
+    logger.info(f"Docs available at: {settings.API_PREFIX}/docs")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    logger.info("ObRail Europe API stopped")
