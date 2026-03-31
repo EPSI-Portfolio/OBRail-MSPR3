@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.router import router
 from app.core.config import settings
 from app.core.logging import setup_logging, logger
+from app.db.init_db import check_database
 
 setup_logging()
 
@@ -47,6 +48,7 @@ app.include_router(router, prefix=settings.API_PREFIX)
 
 @app.on_event("startup")
 async def startup():
+    check_database()
     logger.info("ObRail Europe API started")
     logger.info(f"Docs available at: {settings.API_PREFIX}/docs")
 
