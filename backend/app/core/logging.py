@@ -9,6 +9,7 @@ import os
 
 os.makedirs("logs", exist_ok=True)
 
+
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
@@ -19,5 +20,6 @@ def setup_logging():
             logging.StreamHandler()
         ]
     )
+
 
 logger = logging.getLogger("obrail")

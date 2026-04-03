@@ -33,3 +33,4 @@ class Trajet(Base):
     emission_source     = Column(String(100))
     calculation_date    = Column(Date)
     created_at          = Column(DateTime, server_default=func.now())
+    duration_minutes    = Column(Integer)

@@ -17,7 +17,7 @@ class Settings:
 
     # Database
     POSTGRES_USER: str     = os.getenv("POSTGRES_USER", "obrail_user")
-    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "password")
+    POSTGRES_PASSWORD: str = os.getenv("POSTGRES_PASSWORD", "")
     POSTGRES_HOST: str     = os.getenv("POSTGRES_HOST", "localhost")
     POSTGRES_PORT: str     = os.getenv("POSTGRES_PORT", "5433")
     POSTGRES_DB: str       = os.getenv("POSTGRES_DB", "obrail_db")

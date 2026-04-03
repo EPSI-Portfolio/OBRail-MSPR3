@@ -20,7 +20,7 @@ async def verify_api_key(api_key: str = Security(API_KEY_HEADER)):
     If no API_KEY is set in .env, all requests are allowed.
     """
     if not API_KEY:
-        return  # No key configured — open access
+        return
     if api_key != API_KEY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
