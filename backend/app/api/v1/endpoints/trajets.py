@@ -13,7 +13,6 @@ from sqlalchemy import text
 from typing import Optional
 from app.api.deps import get_db
 from app.schemas.trajet import TrajetBase, TrajetSummary, TrajetsResponse
-from app.core.config import settings
 import logging
 
 router = APIRouter()
@@ -27,30 +26,29 @@ logger = logging.getLogger("obrail")
     description="Returns paginated list of train routes with optional filters."
 )
 async def get_trajets(
-    service_type: Optional[str]   = Query(None, description="day or night"),
-    origin_country: Optional[str] = Query(None, description="Origin country code e.g. FR"),
+    service_type: Optional[str]        = Query(None, description="day or night"),
+    origin_country: Optional[str]      = Query(None, description="Origin country code e.g. FR"),
     destination_country: Optional[str] = Query(None, description="Destination country code"),
-    origin: Optional[str]         = Query(None, description="Origin city name (partial match)"),
-    destination: Optional[str]    = Query(None, description="Destination city name (partial match)"),
-    operator: Optional[str]       = Query(None, description="Operator e.g. DB, SNCF, ÖBB"),
-    min_distance: Optional[float] = Query(None, description="Minimum distance in km"),
-    max_distance: Optional[float] = Query(None, description="Maximum distance in km"),
+    origin: Optional[str]              = Query(None, description="Origin city name (partial match)"),
+    destination: Optional[str]         = Query(None, description="Destination city name (partial match)"),
+    operator: Optional[str]            = Query(None, description="Operator e.g. DB, SNCF, ÖBB"),
+    min_distance: Optional[float]      = Query(None, description="Minimum distance in km"),
+    max_distance: Optional[float]      = Query(None, description="Maximum distance in km"),
     limit: int  = Query(50,  ge=1, le=500, description="Results per page"),
     offset: int = Query(0,   ge=0,         description="Pagination offset"),
     db: Session = Depends(get_db)
 ):
     logger.info(
-        f"GET /trajets — service_type={service_type}, origin_country={origin_country}, "
-        f"limit={limit}, offset={offset}"
+        f"GET /trajets — service_type={service_type}, "
+        f"origin_country={origin_country}, limit={limit}, offset={offset}"
     )
 
-    # Build query dynamically
     conditions = ["1=1"]
     params = {}
 
     if service_type:
         conditions.append("service_type = :service_type")
-        params["service_type"] = service_type
+        params["service_type"] = service_type.lower()
 
     if origin_country:
         conditions.append("origin_country = :origin_country")
@@ -82,21 +80,31 @@ async def get_trajets(
 
     where = " AND ".join(conditions)
 
-    # Count total for pagination
+    # Total count for pagination
     count_result = db.execute(
         text(f"SELECT COUNT(*) FROM fact_routes WHERE {where}"),
         params
     ).fetchone()
     total = count_result[0]
 
-    # Fetch results
+    # Fetch page
     params["limit"]  = limit
     params["offset"] = offset
+
     rows = db.execute(text(f"""
         SELECT
-            route_id, route_name_simple, origin, destination,
-            origin_country, destination_country, distance_km,
-            service_type, operator, co2_savings_kg, savings_percent
+            route_id,
+            route_name_simple,
+            origin,
+            destination,
+            origin_country,
+            destination_country,
+            distance_km,
+            service_type,
+            operator,
+            co2_savings_kg,
+            savings_percent,
+            duration_minutes
         FROM fact_routes
         WHERE {where}
         ORDER BY co2_savings_kg DESC NULLS LAST
@@ -105,22 +113,23 @@ async def get_trajets(
 
     trajets = [
         TrajetSummary(
-            route_id=r[0],
-            route_name_simple=r[1],
-            origin=r[2],
-            destination=r[3],
-            origin_country=r[4],
-            destination_country=r[5],
-            distance_km=r[6],
-            service_type=r[7],
-            operator=r[8],
-            co2_savings_kg=r[9],
-            savings_percent=r[10]
+            route_id=r.route_id,
+            route_name_simple=r.route_name_simple,
+            origin=r.origin,
+            destination=r.destination,
+            origin_country=r.origin_country,
+            destination_country=r.destination_country,
+            distance_km=r.distance_km,
+            service_type=r.service_type,
+            operator=r.operator,
+            co2_savings_kg=r.co2_savings_kg,
+            savings_percent=r.savings_percent,
+            duration_minutes=r.duration_minutes
         )
         for r in rows
     ]
 
-    logger.info(f"GET /trajets — {len(trajets)} returned (total: {total})")
+    logger.info(f"GET /trajets — returned {len(trajets)} of {total} total")
     return TrajetsResponse(total=total, limit=limit, offset=offset, trajets=trajets)
 
 
@@ -134,32 +143,48 @@ async def get_trajet_by_id(route_id: int, db: Session = Depends(get_db)):
     logger.info(f"GET /trajets/{route_id}")
 
     row = db.execute(
-        text("SELECT * FROM fact_routes WHERE route_id = :id"),
+        text("""
+            SELECT
+                route_id, route_name, route_name_simple,
+                origin, destination, origin_country, destination_country,
+                distance_km, service_type, train_type, operator,
+                train_gco2_pkm, plane_gco2_pkm, train_co2_kg, plane_co2_kg,
+                co2_savings_kg, savings_percent, emission_source,
+                calculation_date, duration_minutes
+            FROM fact_routes
+            WHERE route_id = :id
+        """),
         {"id": route_id}
     ).fetchone()
 
     if not row:
         logger.warning(f"Route {route_id} not found")
-        raise HTTPException(status_code=404, detail=f"Trajet {route_id} introuvable")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Trajet {route_id} introuvable"
+        )
+
+    logger.info(f"GET /trajets/{route_id} — found: {row.origin} → {row.destination}")
 
     return TrajetBase(
-        route_id=row[0],
-        route_name=row[1],
-        route_name_simple=row[2],
-        origin=row[3],
-        destination=row[4],
-        origin_country=row[5],
-        destination_country=row[6],
-        distance_km=row[7],
-        service_type=row[8],
-        train_type=row[9],
-        operator=row[10],
-        train_gco2_pkm=row[11],
-        plane_gco2_pkm=row[12],
-        train_co2_kg=row[13],
-        plane_co2_kg=row[14],
-        co2_savings_kg=row[15],
-        savings_percent=row[16],
-        emission_source=row[17],
-        calculation_date=row[18]
+        route_id=row.route_id,
+        route_name=row.route_name,
+        route_name_simple=row.route_name_simple,
+        origin=row.origin,
+        destination=row.destination,
+        origin_country=row.origin_country,
+        destination_country=row.destination_country,
+        distance_km=row.distance_km,
+        service_type=row.service_type,
+        train_type=row.train_type,
+        operator=row.operator,
+        train_gco2_pkm=row.train_gco2_pkm,
+        plane_gco2_pkm=row.plane_gco2_pkm,
+        train_co2_kg=row.train_co2_kg,
+        plane_co2_kg=row.plane_co2_kg,
+        co2_savings_kg=row.co2_savings_kg,
+        savings_percent=row.savings_percent,
+        emission_source=row.emission_source,
+        calculation_date=row.calculation_date,
+        duration_minutes=row.duration_minutes
     )

@@ -3,14 +3,15 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY requirements.txt .
+
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p logs
+RUN adduser --disabled-password --gecos '' appuser && \
+    mkdir -p logs && \
+    chown -R appuser:appuser /app
 
-# Run as non-root user
-RUN adduser --disabled-password --gecos '' appuser
 USER appuser
 
 EXPOSE 8000
