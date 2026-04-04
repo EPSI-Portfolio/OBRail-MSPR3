@@ -45,7 +45,7 @@ jobs:
         run: |
           psql -h localhost -p 5434 -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -f database/init/01_create_schema.sql
           psql -h localhost -p 5434 -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -f database/init/02_reference_data.sql
-          psql -h localhost -p 5434 -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -f database/init/03_dimensions_data.sql || true
+          psql -h localhost -p 5434 -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -f database/init/03_fact_routes_data.sql || true
 
       - name: Run tests
         working-directory: ./backend
