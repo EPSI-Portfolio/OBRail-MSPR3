@@ -1,5 +1,7 @@
 services:
 
+  # PostgreSQL 15 database. Stores all train route and CO2 data.
+  # Init scripts in ./database/init run automatically on first start.
   db:
     image: postgres:15
     container_name: obrail-mspr3_postgres_db
@@ -13,11 +15,13 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U obrail_user -d obrail_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # FastAPI backend. Exposes the REST API on port 8002 and /metrics for Prometheus.
+  # Waits for the database to be healthy before starting.
   backend:
     build: ./backend
     container_name: obrail-mspr3_api
@@ -33,5 +37,39 @@ services:
       db:
         condition: service_healthy
 
+  # Prometheus scrapes /metrics from the backend every 15 seconds.
+  # Configuration is defined in ./monitoring/prometheus/prometheus.yml.
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: obrail-mspr3_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - backend
+
+  # Grafana visualises metrics from Prometheus on port 3000.
+  # The dashboard and datasource are auto-provisioned from ./monitoring/grafana/.
+  # Admin credentials are loaded from .env and never hardcoded.
+  grafana:
+    image: grafana/grafana:latest
+    container_name: obrail-mspr3_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+    volumes:
+      - ./monitoring/grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./monitoring/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
+  # Persists PostgreSQL data between container restarts.
   postgres_data:
+  # Persists Grafana dashboards and settings between container restarts.
+  grafana_data:
