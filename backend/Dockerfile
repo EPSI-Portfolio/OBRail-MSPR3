@@ -16,4 +16,8 @@ USER appuser
 
 EXPOSE 8000
 
+# Checks the API health endpoint every 30s to detect if the container is unhealthy.
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"
+    
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
