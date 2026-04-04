@@ -13,8 +13,8 @@ Then open http://localhost:8089 to control the test.
 
 For CI/headless mode (100 users, 10 spawn rate, 60s duration):
     locust -f tests/load/locustfile.py --host=http://localhost:8002 \
-           --headless -u 100 -r 10 -t 60s \
-           --html=tests/load/report.html
+        --headless -u 100 -r 10 -t 60s \
+        --html=tests/load/report.html
 """
 
 from locust import HttpUser, task, between
