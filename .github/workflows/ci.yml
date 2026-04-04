@@ -2,14 +2,58 @@ name: CI
 
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, backend]
   pull_request:
     branches: [develop, main]
 
 jobs:
-  hello:
+  test-backend:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v3
-      - name: Say hello
-        run: echo "CI is working!"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run init SQL scripts
+        env:
+          PGPASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+        run: |
+          psql -h localhost -p 5434 -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -f database/init/01_create_schema.sql
+          psql -h localhost -p 5434 -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -f database/init/02_reference_data.sql
+          psql -h localhost -p 5434 -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -f database/init/03_fact_routes_data.sql || true
+
+      - name: Run tests
+        working-directory: ./backend
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5434
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        run: |
+          pytest tests/ -v
