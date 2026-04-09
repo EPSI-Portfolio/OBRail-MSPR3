@@ -1,25 +1,25 @@
-// Un enregistrement de stats — réponse de GET /api/v1/stats/volumes
-export interface StatsVolumeItem {
-  origin_country: string
-  service_type: 'day' | 'night'
-  route_count: number
-  avg_distance_km: number
-}
+import type { TrajetSummary } from './trajet'
 
-// Réponse complète de GET /api/v1/stats/volumes
-export interface StatsVolumesResponse {
+// Réponse paginée de GET /api/v1/trajets
+export interface PaginatedTrajets {
   total: number
-  data: StatsVolumeItem[]
+  limit: number
+  offset: number
+  trajets: TrajetSummary[]
 }
 
-// Données formatées pour les graphiques Recharts
-export interface BarChartEntry {
-  country: string
-  day: number
-  night: number
+// État générique d'un appel API dans les hooks
+export interface ApiState<T> {
+  data: T | null
+  isLoading: boolean
+  error: string | null
 }
 
-export interface PieChartEntry {
-  name: string
-  value: number
+// Erreur de validation FastAPI (422)
+export interface ValidationError {
+  detail: Array<{
+    loc: (string | number)[]
+    msg: string
+    type: string
+  }>
 }
