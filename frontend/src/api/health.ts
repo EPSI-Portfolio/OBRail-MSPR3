@@ -1,19 +1,12 @@
-// src/api/health.ts
-
-import axios from 'axios'
+import client from './client'
 import { GRAFANA_URL } from '../utils/constants'
 
-// Note : /health est à la racine, pas sous /api/v1
-const HEALTH_URL = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL.replace('/api/v1', '/health')
-  : 'http://localhost:8002/health'
-
 /**
- * GET /health
+ * GET /api/v1/health
  * Retourne le statut de l'API et de la base de données.
  */
 export async function getHealth(): Promise<string> {
-  const { data } = await axios.get<string>(HEALTH_URL, { timeout: 5_000 })
+  const { data } = await client.get<string>('/health', { timeout: 5_000 })
   return data
 }
 
