@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getStats } from '../api/stats'
-import type { StatsVolumesResponse, BarChartEntry, PieChartEntry } from '../types/stats'
+import { getStats, getStatsCO2 } from '../api/stats'
+import type { StatsVolumesResponse, BarChartEntry, PieChartEntry, StatsCO2Response } from '../types/stats'
 import type { ApiState } from '../types/api'
 import { CHART_COLORS } from '../utils/constants'
 
@@ -10,11 +10,15 @@ export function useStats() {
     isLoading: true,
     error: null,
   })
+  const [co2Data, setCo2Data] = useState<StatsCO2Response | null>(null)
 
   const fetchStats = () => {
     setState((prev) => ({ ...prev, isLoading: true, error: null }))
-    getStats()
-      .then((data) => setState({ data, isLoading: false, error: null }))
+    Promise.all([getStats(), getStatsCO2()])
+      .then(([volumes, co2]) => {
+        setState({ data: volumes, isLoading: false, error: null })
+        setCo2Data(co2)
+      })
       .catch((err) =>
         setState({
           data: null,
@@ -26,7 +30,6 @@ export function useStats() {
 
   useEffect(() => { fetchStats() }, [])
 
-  // Données formatées pour le graphique en barres (par pays)
   const barChartData: BarChartEntry[] = state.data
     ? Object.values(
         state.data.data.reduce<Record<string, BarChartEntry>>((acc, item) => {
@@ -39,7 +42,6 @@ export function useStats() {
       )
     : []
 
-  // Données pour le camembert jour / nuit
   const pieChartData: PieChartEntry[] = state.data
     ? [
         {
@@ -67,6 +69,7 @@ export function useStats() {
     pieChartData,
     uniqueCountries,
     chartColors: CHART_COLORS,
+    co2Data,
     refetch: fetchStats,
   }
 }

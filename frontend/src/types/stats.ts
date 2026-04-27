@@ -23,3 +23,19 @@ export interface PieChartEntry {
   name: string
   value: number
 }
+
+export interface CO2ByCountry {
+  origin_country: string
+  route_count: number
+  total_savings_kg: number
+  avg_savings_per_route_kg: number
+  total_savings_tons: number
+}
+
+export interface StatsCO2Response {
+  total_routes: number
+  total_co2_saved_kg: number
+  total_co2_saved_tons: number
+  avg_savings_percent: number
+  by_country: CO2ByCountry[]
+}

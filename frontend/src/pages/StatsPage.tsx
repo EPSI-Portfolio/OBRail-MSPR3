@@ -1,13 +1,13 @@
-// StatsPage.tsx
 import { useStats } from '../hooks/useStats'
 import StatsCard from '../components/stats/StatsCard'
 import VolumeChart from '../components/stats/VolumeChart'
 import DayNightChart from '../components/stats/DayNightChart'
+import CO2Chart from '../components/stats/CO2Chart'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
 
 export default function StatsPage() {
-  const { data, isLoading, error, barChartData, pieChartData, uniqueCountries } = useStats()
+  const { data, isLoading, error, barChartData, pieChartData, uniqueCountries, co2Data } = useStats()
 
   return (
     <main id="main-content" className="page-container">
@@ -18,7 +18,6 @@ export default function StatsPage() {
 
       {!isLoading && !error && data && (
         <>
-          {/* KPIs */}
           <section aria-labelledby="kpi-title" id="kpi-section">
             <h2 id="kpi-title" className="sr-only">Chiffres clés</h2>
             <div className="kpi-grid">
@@ -29,17 +28,26 @@ export default function StatsPage() {
             </div>
           </section>
 
-          {/* Graphique en barres */}
           <section aria-labelledby="bar-chart-title" id="bar-chart-section">
             <h2 id="bar-chart-title">Volume de trajets par pays</h2>
             <VolumeChart data={barChartData} />
           </section>
 
-          {/* Camembert */}
           <section aria-labelledby="pie-chart-title" id="pie-chart-section">
             <h2 id="pie-chart-title">Répartition Jour / Nuit</h2>
             <DayNightChart data={pieChartData} />
           </section>
+
+          {co2Data && (
+            <section aria-labelledby="co2-chart-title" id="co2-section">
+              <h2 id="co2-chart-title">Impact CO₂ par pays</h2>
+              <CO2Chart
+                data={co2Data.by_country}
+                totalSavedTons={co2Data.total_co2_saved_tons}
+                avgSavingsPercent={co2Data.avg_savings_percent}
+              />
+            </section>
+          )}
         </>
       )}
     </main>
