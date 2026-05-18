@@ -8,13 +8,34 @@ interface Props {
   onRefresh: () => void
 }
 
+// Parse la réponse health en objet lisible
+function parseHealthStatus(raw: string | null): Record<string, string> | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw)
+    return {
+      'Statut API': parsed.status ?? '—',
+      'Base de données': parsed.database ?? '—',
+      'Version': parsed.version ?? '—',
+      'Uptime': parsed.uptime_seconds != null
+        ? `${Math.floor(parsed.uptime_seconds / 60)} min`
+        : '—',
+      'Routes totales': parsed.data?.total_routes ?? '—',
+      'Trains de nuit': parsed.data?.night_routes ?? '—',
+      'Trains de jour': parsed.data?.day_routes ?? '—',
+    }
+  } catch {
+    return { 'Réponse': raw }
+  }
+}
+
 export default function HealthStatus({ isOnline, isLoading, status, lastChecked, onRefresh }: Props) {
   const stateClass = isLoading ? 'checking' : isOnline ? 'online' : 'offline'
   const stateLabel = isLoading
     ? 'Vérification en cours…'
-    : isOnline
-    ? '✅ Service en ligne'
-    : '❌ Service hors ligne'
+    : isOnline ? '✅ Service en ligne' : '❌ Service hors ligne'
+
+  const details = parseHealthStatus(status)
 
   return (
     <>
@@ -28,37 +49,50 @@ export default function HealthStatus({ isOnline, isLoading, status, lastChecked,
           aria-label={stateLabel}
         >
           <span className="status-dot" id="status-dot" aria-hidden="true" />
-          <span className="status-label" id="status-label">{stateLabel}</span>
+          <div>
+            <span className="status-label" id="status-label">{stateLabel}</span>
+            {lastChecked && (
+              <p className="last-checked" id="last-checked" style={{ marginBottom: 0, marginTop: '0.15rem' }}>
+                Dernière vérification : {lastChecked}
+              </p>
+            )}
+          </div>
+          <button
+            id="refresh-btn"
+            className="btn-primary"
+            onClick={onRefresh}
+            aria-label="Actualiser le statut"
+            style={{ marginLeft: 'auto' }}
+          >
+            🔄 Actualiser
+          </button>
         </div>
 
-        {lastChecked && (
-          <p className="last-checked" id="last-checked">
-            Dernière vérification : {lastChecked}
-          </p>
-        )}
-
-        {status && (
+        {/* Détails structurés */}
+        {details && (
           <div className="status-details" id="status-details">
-            <p>
-              <strong>Réponse API : </strong>
-              <span id="api-response">{status}</span>
-            </p>
+            <p className="status-details-title">Détails du service</p>
+            <div className="status-details-grid">
+              {Object.entries(details).map(([label, value]) => (
+                <div className="status-detail-item" key={label}>
+                  <span className="status-detail-label">{label}</span>
+                  <span className={`status-detail-value ${
+                    value === 'healthy' || value === 'connected' ? 'green' : ''
+                  }`}>
+                    {value}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-
-        <button
-          id="refresh-btn"
-          className="btn-primary"
-          onClick={onRefresh}
-          aria-label="Actualiser le statut du service"
-        >
-          🔄 Actualiser
-        </button>
       </section>
 
       <section aria-labelledby="grafana-title" id="grafana-section">
         <h2 id="grafana-title">Monitoring Grafana</h2>
-        <p>Accédez au tableau de bord pour visualiser les métriques en temps réel.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+          Accédez au tableau de bord pour visualiser les métriques en temps réel.
+        </p>
         <a
           href={GRAFANA_URL}
           target="_blank"
