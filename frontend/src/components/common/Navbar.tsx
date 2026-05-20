@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react'
 import ServiceIndicator from '../monitoring/ServiceIndicator'
 
 export default function Navbar() {
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    return (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
-  })
+  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
+    (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+  )
+  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
@@ -13,6 +14,7 @@ export default function Navbar() {
   }, [theme])
 
   const toggleTheme = () => setTheme(t => t === 'light' ? 'dark' : 'light')
+  const toggleMenu = () => setMenuOpen(o => !o)
 
   return (
     <nav className="navbar" role="navigation" aria-label="Navigation principale">
@@ -21,25 +23,29 @@ export default function Navbar() {
         <span className="navbar-title">ObRail Europe</span>
       </div>
 
-      <ul className="navbar-links" role="list">
-        <li>
-          <NavLink to="/trajets" id="nav-trajets"
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-            Trajets
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="/stats" id="nav-stats"
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-            Statistiques
-          </NavLink>
-        </li>
-        <li>
-          <NavLink to="/health" id="nav-health"
-            className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
-            État du service
-          </NavLink>
-        </li>
+      {/* Hamburger mobile */}
+      <button
+        className="navbar-hamburger"
+        onClick={toggleMenu}
+        aria-label={menuOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+        aria-expanded={menuOpen}
+      >
+        {menuOpen ? '✕' : '☰'}
+      </button>
+
+      <ul className={`navbar-links${menuOpen ? ' open' : ''}`} role="list">
+        {['trajets', 'stats', 'health'].map((path) => (
+          <li key={path}>
+            <NavLink
+              to={`/${path}`}
+              id={`nav-${path}`}
+              className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+            >
+              {path === 'trajets' ? 'Trajets' : path === 'stats' ? 'Statistiques' : 'État du service'}
+            </NavLink>
+          </li>
+        ))}
       </ul>
 
       <div className="navbar-right">

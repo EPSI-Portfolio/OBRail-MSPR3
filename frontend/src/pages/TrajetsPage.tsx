@@ -1,8 +1,6 @@
-// TrajetsPage.tsx
-
 import { useTrajets } from '../hooks/useTrajets'
-import TrajetFilter from '../components/trajets/TrajetFilter';
-import TrajetList from '../components/trajets/TrajetList';
+import TrajetFilter from '../components/trajets/TrajetFilter'
+import TrajetList from '../components/trajets/TrajetList'
 import Pagination from '../components/common/Pagination'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import ErrorMessage from '../components/common/ErrorMessage'
@@ -12,8 +10,14 @@ export default function TrajetsPage() {
   const { data, isLoading, error, filters, updateFilters, goToPage } = useTrajets()
 
   return (
-    <main id="main-content" className="page-container">
-      <h1 id="page-title-trajets">Trajets Ferroviaires Européens</h1>
+    <main id="main-content" className="page-container fade-in">
+      <div className="page-header">
+        <h1 className="page-title">Trajets Ferroviaires Européens</h1>
+        <p className="page-subtitle">
+          Analyse comparative des liaisons transfrontalières et de leur impact environnemental.
+          Comparez les émissions CO₂ train vs avion sur {data?.total ?? '—'} trajets.
+        </p>
+      </div>
 
       <TrajetFilter onFilter={updateFilters} />
 
