@@ -21,8 +21,7 @@ test.describe('Page Liste des Trajets', () => {
   test('le filtre jour/nuit fonctionne', async ({ page }) => {
     await page.locator('#service-type-filter').selectOption('night')
     await expect(page.locator('#loader')).not.toBeVisible({ timeout: 5000 })
-    // Toutes les cartes visibles doivent être de nuit
-    const cards = page.locator('.trajet-card.night')
+    const cards = page.locator('.tcard--night')
     await expect(cards.first()).toBeVisible()
   })
 
@@ -44,7 +43,7 @@ test.describe('Page Liste des Trajets', () => {
   })
 
   test('un clic sur une carte navigue vers le détail', async ({ page }) => {
-    await page.locator('.trajet-card').first().click()
+    await page.locator('.tcard').first().click()
     await expect(page).toHaveURL(/\/trajets\/\d+/)
     await expect(page.locator('#trajet-detail')).toBeVisible()
   })

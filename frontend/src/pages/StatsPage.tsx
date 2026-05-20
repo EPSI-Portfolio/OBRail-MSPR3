@@ -12,7 +12,7 @@ export default function StatsPage() {
   return (
     <main id="main-content" className="page-container fade-in">
       <div className="page-header">
-        <h1 className="page-title">Tableau de Bord Statistiques</h1>
+        <h1 id="page-title-stats" className="page-title">Tableau de Bord Statistiques</h1>
         <p className="page-subtitle">
           Vue d'ensemble des dessertes ferroviaires européennes et de leur contribution
           à la réduction des émissions de CO₂ par rapport au transport aérien.

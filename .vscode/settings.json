@@ -3,5 +3,6 @@
         "backend"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "js/ts.tsdk.path": "frontend/node_modules/typescript/lib"
 }
