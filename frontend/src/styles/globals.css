@@ -438,7 +438,7 @@ img, video { max-width: 100%; height: auto; }
   font-family: var(--font-sans);
   transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
   outline: none;
-} 
+}
 .filter-group input:focus,
 .filter-group select:focus {
   border-color: var(--border-focus);
@@ -1190,14 +1190,150 @@ img, video { max-width: 100%; height: auto; }
   .status-details-grid { grid-template-columns: 1fr 1fr; }
 }
 
-.tcard__country-code {
-  font-size: 0.7rem;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--text-subtle);
-  background: var(--bg-subtle);
+/* ══════════════════════════════════════════════
+   ONGLETS STATS
+   ══════════════════════════════════════════════ */
+
+.tabs-wrapper {
+  margin-top: var(--space-md);
+}
+
+.tabs-nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.25rem;
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 0.1rem 0.35rem;
-  letter-spacing: 0.05em;
+  border-radius: var(--radius-lg);
+  padding: 0.35rem;
+  margin-bottom: var(--space-md);
+}
+.tabs-nav::-webkit-scrollbar { display: none; }
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+  white-space: nowrap;
+  width: 100%;
+}
+.tab-btn:hover { background: var(--bg-subtle); color: var(--text); }
+.tab-btn--active {
+  background: var(--primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="dark"] .tab-btn--active {
+  background: var(--accent);
+}
+
+.tab-panel {
+  animation: fadeIn 0.2s ease forwards;
+}
+
+/* ══════════════════════════════════════════════
+   COMPARAISON CARDS
+   ══════════════════════════════════════════════ */
+
+.comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.comparison-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: var(--shadow-sm);
+  border-top: 3px solid transparent;
+}
+.comparison-card--day { border-top-color: var(--day); }
+.comparison-card--night { border-top-color: var(--night); }
+
+.comparison-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: var(--space-sm);
+  flex-wrap: wrap;
+}
+.comparison-card-icon { font-size: 1.25rem; }
+.comparison-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  flex: 1;
+}
+.comparison-card-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+}
+
+.comparison-card-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.comparison-card-list li {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  padding-left: 1.25rem;
+  position: relative;
+  line-height: 1.4;
+}
+.comparison-card-list li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--success);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+/* ══════════════════════════════════════════════
+   CONCLUSION CARD
+   ══════════════════════════════════════════════ */
+
+.conclusion-card {
+  background: linear-gradient(135deg, var(--primary) 0%, #1e4d8c 50%, #1a6bbd 100%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  color: white;
+  margin-top: var(--space-sm);
+}
+[data-theme="dark"] .conclusion-card {
+  background: linear-gradient(135deg, #1a2a4a 0%, #1e3a6a 100%);
+}
+
+.conclusion-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.conclusion-text {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  opacity: 0.9;
 }
