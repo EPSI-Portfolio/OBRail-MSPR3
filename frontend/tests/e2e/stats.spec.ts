@@ -19,13 +19,13 @@ test.describe('Page Statistiques', () => {
 
   test('le graphique en barres s\'affiche', async ({ page }) => {
     await expect(page.locator('#loader')).not.toBeVisible({ timeout: 15000 })
-    await expect(page.locator('#bar-chart-section')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('#panel-couverture')).toBeVisible({ timeout: 15000 })
     await expect(page.locator('#bar-chart')).toBeVisible({ timeout: 15000 })
   })
 
   test('le graphique circulaire s\'affiche', async ({ page }) => {
     await expect(page.locator('#loader')).not.toBeVisible({ timeout: 15000 })
-    await expect(page.locator('#pie-chart-section')).toBeVisible({ timeout: 15000 })
-    await expect(page.locator('#pie-chart')).toBeVisible({ timeout: 15000 })
+    await page.locator('#tab-emissions').click()
+    await expect(page.locator('#panel-emissions')).toBeVisible({ timeout: 15000 })
   })
 })
