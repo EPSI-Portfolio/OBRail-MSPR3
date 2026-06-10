@@ -1,0 +1,34 @@
+# Promtail — tails the backend's JSON logs and ships them to Loki.
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: obrail-backend
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: obrail-backend
+          __path__: /var/log/backend/*.log
+    pipeline_stages:
+      # Parse each line as JSON (matches the backend's JsonFormatter output).
+      - json:
+          expressions:
+            level: level
+            logger: logger
+            message: message
+            timestamp: timestamp
+      # Promote the log level to a Loki label so it can be filtered in Grafana.
+      - labels:
+          level:
+      # Use the log's own timestamp instead of the ingestion time.
+      - timestamp:
+          source: timestamp
+          format: RFC3339

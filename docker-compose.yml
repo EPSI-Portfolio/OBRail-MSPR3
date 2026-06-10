@@ -19,9 +19,12 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - obrail-net
 
   # FastAPI backend. Exposes the REST API on port 8002 and /metrics for Prometheus.
   # Waits for the database to be healthy before starting.
+  # Writes structured JSON logs to the shared backend_logs volume (read by Promtail).
   backend:
     build: ./backend
     container_name: obrail-mspr3_api
@@ -33,9 +36,13 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PORT: 5432
       POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - backend_logs:/app/logs
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - obrail-net
 
   # React Vite frontend. Serves the UI on port 3001.
   # Built from ./frontend/Dockerfile.
@@ -50,6 +57,8 @@ services:
       - "3001:80"
     depends_on:
       - backend
+    networks:
+      - obrail-net
 
   # Prometheus scrapes /metrics from the backend every 15 seconds.
   # Configuration is defined in ./monitoring/prometheus/prometheus.yml.
@@ -62,9 +71,37 @@ services:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     depends_on:
       - backend
+    networks:
+      - obrail-net
 
-  # Grafana visualises metrics from Prometheus on port 3000.
-  # The dashboard and datasource are auto-provisioned from ./monitoring/grafana/.
+  # Loki stores and indexes the application logs. Receives them from Promtail
+  # and exposes them to Grafana on port 3100. Uses Loki's built-in dev config.
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: obrail-mspr3_loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - obrail-net
+
+  # Promtail tails the backend's JSON logs (shared volume) and ships them to Loki.
+  # Configuration is defined in ./monitoring/promtail/promtail-config.yml.
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: obrail-mspr3_promtail
+    volumes:
+      - backend_logs:/var/log/backend:ro
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+      - backend
+    networks:
+      - obrail-net
+
+  # Grafana visualises metrics from Prometheus and logs from Loki on port 3000.
+  # Datasources and dashboards are auto-provisioned from ./monitoring/grafana/.
   # Admin credentials are loaded from .env and never hardcoded.
   grafana:
     image: grafana/grafana:latest
@@ -81,9 +118,20 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+      - loki
+    networks:
+      - obrail-net
+
+# All services share an explicit, named network so they can reach each other
+# by service name (e.g. the backend reaches the db at host "db").
+networks:
+  obrail-net:
+    driver: bridge
 
 volumes:
   # Persists PostgreSQL data between container restarts.
   postgres_data:
   # Persists Grafana dashboards and settings between container restarts.
   grafana_data:
+  # Shares the backend's JSON log files with Promtail.
+  backend_logs:
