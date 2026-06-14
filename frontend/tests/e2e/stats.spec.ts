@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Page Statistiques', () => {
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/stats')
   })
@@ -11,6 +12,7 @@ test.describe('Page Statistiques', () => {
 
   test('les KPIs s\'affichent', async ({ page }) => {
     await expect(page.locator('#loader')).not.toBeVisible({ timeout: 8000 })
+
     await expect(page.locator('#kpi-total')).toBeVisible()
     await expect(page.locator('#kpi-day')).toBeVisible()
     await expect(page.locator('#kpi-night')).toBeVisible()
@@ -19,13 +21,19 @@ test.describe('Page Statistiques', () => {
 
   test('le graphique en barres s\'affiche', async ({ page }) => {
     await expect(page.locator('#loader')).not.toBeVisible({ timeout: 8000 })
+
     await expect(page.locator('#bar-chart-section')).toBeVisible()
     await expect(page.locator('#bar-chart')).toBeVisible()
   })
 
   test('le graphique circulaire s\'affiche', async ({ page }) => {
     await expect(page.locator('#loader')).not.toBeVisible({ timeout: 8000 })
+
+    // IMPORTANT : activer le tab emissions
+    await page.getByRole('tab', { name: 'Émissions CO₂' }).click()
+
     await expect(page.locator('#pie-chart-section')).toBeVisible()
     await expect(page.locator('#pie-chart')).toBeVisible()
   })
+
 })
