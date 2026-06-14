@@ -148,24 +148,33 @@ export default function StatsPage() {
             {/* ── Couverture ── */}
             {activeTab === 'couverture' && (
               <div id="panel-couverture" role="tabpanel" aria-labelledby="tab-couverture" className="tab-panel fade-in">
-                <div className="chart-card">
-                  <p className="chart-card-title">Volume de trajets par pays</p>
-                  <p className="chart-card-desc">
-                    Répartition des {totalReal.toLocaleString('fr-FR')} trajets par pays d'origine sur {uniqueCountries} pays.
-                  </p>
+              <section className="chart-card" id="bar-chart-section">
+                <p className="chart-card-title">Volume de trajets par pays</p>
+
+                <p className="chart-card-desc">
+                  Répartition des {totalReal.toLocaleString('fr-FR')} trajets par pays d'origine sur {uniqueCountries} pays.
+                </p>
+
+                <div id="bar-chart">
                   <VolumeChart data={barChartData} />
-                  <div className="insight-box">
-                    <span className="insight-icon">💡</span>
-                    <div className="insight-content">
-                      <p className="insight-label">Observation clé</p>
-                      <p className="insight-text">
-                        {barChartData.length > 0
-                          ? `${barChartData.reduce((a, b) => (a.day + a.night) > (b.day + b.night) ? a : b).country} concentre le plus grand volume de liaisons ferroviaires en Europe.`
-                          : '—'}
-                      </p>
-                    </div>
+                </div>
+
+                <div className="insight-box">
+                  <span className="insight-icon">💡</span>
+
+                  <div className="insight-content">
+                    <p className="insight-label">Observation clé</p>
+
+                    <p className="insight-text">
+                      {barChartData.length > 0
+                        ? `${barChartData.reduce((a, b) =>
+                            (a.day + a.night) > (b.day + b.night) ? a : b
+                          ).country} concentre le plus grand volume de liaisons ferroviaires en Europe.`
+                        : '—'}
+                    </p>
                   </div>
                 </div>
+              </section>
 
                 <div className="stats-detail-grid">
                   <div className="stats-detail-card stats-detail-card--day">
@@ -287,22 +296,37 @@ export default function StatsPage() {
             {/* ── Émissions CO2 ── */}
             {activeTab === 'emissions' && (
               <div id="panel-emissions" role="tabpanel" aria-labelledby="tab-emissions" className="tab-panel fade-in">
-                <div className="chart-card">
-                  <p className="chart-card-title">Émissions CO₂ estimées par passager (g/km)</p>
-                  <p className="chart-card-desc">
-                    Comparaison de l'empreinte carbone selon le mode de transport —
-                    basé sur {totalRoutes.toLocaleString('fr-FR')} trajets analysés.
-                  </p>
-                  <ResponsiveContainer width="100%" height={360}>
-                    <PieChart>
-                      <Pie data={emissionsData} cx="50%" cy="50%" outerRadius={130} dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}g`}>
-                        {emissionsData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Pie>
-                      <Tooltip formatter={(v) => [`${v} g/km`, 'Émissions']} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+<section className="chart-card" id="pie-chart-section">
+  <p className="chart-card-title">
+    Émissions CO₂ estimées par passager (g/km)
+  </p>
+
+  <p className="chart-card-desc">
+    Comparaison de l'empreinte carbone selon le mode de transport —
+    basé sur {totalRoutes.toLocaleString('fr-FR')} trajets analysés.
+  </p>
+
+  <div id="pie-chart">
+    <ResponsiveContainer width="100%" height={360}>
+      <PieChart>
+        <Pie
+          data={emissionsData}
+          cx="50%"
+          cy="50%"
+          outerRadius={130}
+          dataKey="value"
+          label={({ name, value }) => `${name}: ${value}g`}
+        >
+          {emissionsData.map((entry, i) => (
+            <Cell key={i} fill={entry.color} />
+          ))}
+        </Pie>
+
+        <Tooltip formatter={(v) => [`${v} g/km`, 'Émissions']} />
+      </PieChart>
+    </ResponsiveContainer>
+  </div>
+</section>
 
                 <div className="emissions-grid">
                   <div className="emissions-card emissions-card--day">
