@@ -104,7 +104,7 @@ export default function StatsPage() {
     <main id="main-content" className="page-container fade-in">
       {/* En-tête */}
       <div className="page-header" style={{ textAlign: 'center', maxWidth: '800px', margin: '0 auto var(--space-lg)' }}>
-        <h1 id="page-title-stats" className="page-title">Statistiques Ferroviaires Européennes</h1>
+        <h1 className="page-title">Statistiques Ferroviaires Européennes</h1>
         <p className="page-subtitle" style={{ maxWidth: '100%' }}>
           Analyse comparative de la contribution des trains de jour et des trains de nuit
           au maillage ferroviaire européen et leur potentiel comme alternative à l'avion.
