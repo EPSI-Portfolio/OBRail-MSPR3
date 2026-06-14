@@ -7,7 +7,7 @@ export default function HealthPage() {
   return (
     <main id="main-content" className="page-container fade-in">
       <div className="page-header">
-        <h1 className="page-title">État du Service</h1>
+        <h1 className="page-title" id="page-title-health">État du Service</h1>
         <p className="page-subtitle">
           Supervision en temps réel de l'API, de la base de données et des services de monitoring.
           Rafraîchissement automatique toutes les 30 secondes.

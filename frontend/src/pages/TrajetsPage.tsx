@@ -12,7 +12,7 @@ export default function TrajetsPage() {
   return (
     <main id="main-content" className="page-container fade-in">
       <div className="page-header">
-        <h1 className="page-title">Trajets Ferroviaires Européens</h1>
+        <h1 className="page-title" id="page-title-trajets">Trajets Ferroviaires Européens</h1>
         <p className="page-subtitle">
           Analyse comparative des liaisons transfrontalières et de leur impact environnemental.
           Comparez les émissions CO₂ train vs avion sur {data?.total ?? '—'} trajets.
