@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Page Statistiques', () => {
+
   test.beforeEach(async ({ page }) => {
     await page.goto('/stats')
   })
@@ -28,4 +29,5 @@ test.describe('Page Statistiques', () => {
     await page.locator('#tab-emissions').click()
     await expect(page.locator('#panel-emissions')).toBeVisible({ timeout: 15000 })
   })
+
 })

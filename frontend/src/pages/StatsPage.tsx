@@ -155,7 +155,7 @@ export default function StatsPage() {
                   Répartition des {totalReal.toLocaleString('fr-FR')} trajets par pays d'origine sur {uniqueCountries} pays.
                 </p>
 
-                <div id="bar-chart">
+                <div data-testid="bar-chart">
                   <VolumeChart data={barChartData} />
                 </div>
 
@@ -296,17 +296,17 @@ export default function StatsPage() {
             {/* ── Émissions CO2 ── */}
             {activeTab === 'emissions' && (
               <div id="panel-emissions" role="tabpanel" aria-labelledby="tab-emissions" className="tab-panel fade-in">
-<section className="chart-card" id="pie-chart-section">
-  <p className="chart-card-title">
-    Émissions CO₂ estimées par passager (g/km)
-  </p>
+    <section className="chart-card" data-testid="pie-chart-section">
+      <p className="chart-card-title">
+        Émissions CO₂ estimées par passager (g/km)
+      </p>
 
   <p className="chart-card-desc">
     Comparaison de l'empreinte carbone selon le mode de transport —
     basé sur {totalRoutes.toLocaleString('fr-FR')} trajets analysés.
   </p>
 
-  <div id="pie-chart">
+  <div data-testid="pie-chart">
     <ResponsiveContainer width="100%" height={360}>
       <PieChart>
         <Pie
