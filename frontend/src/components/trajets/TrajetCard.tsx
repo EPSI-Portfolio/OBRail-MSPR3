@@ -28,7 +28,7 @@ export default function TrajetCard({ trajet }: Props) {
 
   return (
     <article
-      className={`tcard ${isNight ? 'tcard--night' : 'tcard--day'}`}
+      className={`trajet-card tcard ${isNight ? 'night tcard--night' : 'day tcard--day'}`}
       id={`trajet-card-${trajet.route_id}`}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
