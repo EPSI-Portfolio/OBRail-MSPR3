@@ -1,3 +1,16 @@
+# =============================================================================
+# Deploy pipeline — simulated deployment, runs on push to main (final delivery)
+#
+# This is a *simulated* deploy (appropriate for the MSPR scope): it brings the
+# full stack up with docker compose, verifies the backend becomes healthy and
+# the API responds, then tears everything down. No real cloud target is needed.
+#
+# ⚠️ VERIFY:
+#   - Secrets POSTGRES_USER/PASSWORD/DB and GRAFANA_USER/GRAFANA_PASSWORD exist
+#     under Settings → Secrets and variables → Actions.
+#   - Backend health URL/port (assumes http://localhost:8002/api/v1/health).
+# =============================================================================
+
 name: Deploy
 
 on:
@@ -8,5 +21,47 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder
-        run: echo "Deploy pipeline coming soon"
+      - uses: actions/checkout@v4
+
+      - name: Create .env for compose
+        run: |
+          cat > .env <<EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          GRAFANA_USER=${{ secrets.GRAFANA_USER }}
+          GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
+          EOF
+
+      - name: Deploy stack (docker compose up)
+        run: docker compose up -d --build
+
+      - name: Wait for backend to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8002/api/v1/health > /dev/null; then
+              echo "✅ Backend is healthy — deployment verified"
+              exit 0
+            fi
+            echo "waiting for backend... ($i)"; sleep 5
+          done
+          echo "❌ Backend did not become healthy"
+          docker compose logs backend
+          exit 1
+
+      - name: Smoke test the API
+        run: curl -sf http://localhost:8002/api/v1/health
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "## Deployment Summary"
+            echo ""
+            echo "Simulated deployment of the ObRail stack via docker compose."
+            echo "Backend health check ran against /api/v1/health."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

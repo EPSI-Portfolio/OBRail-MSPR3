@@ -1,12 +1,30 @@
+# =============================================================================
+# CI pipeline — full rebuild
+#
+# ⚠️ VERIFY THESE BEFORE PUSHING (a hand-rebuild can't know your exact setup):
+#   1. Frontend lint script: this assumes `npm run lint` exists in frontend/package.json.
+#   2. Node version: assumes 20 — match whatever your project uses.
+#   3. compose service names: assumes `db`, `backend`, `frontend`. Check docker-compose.yml.
+#   4. Frontend URL/port: assumes http://localhost:5173 (Vite default). Check your compose mapping.
+#   5. Secrets: needs POSTGRES_USER/PASSWORD/DB (you already have these) plus
+#      GRAFANA_USER/GRAFANA_PASSWORD if your compose requires them. Add any missing
+#      ones in Settings → Secrets and variables → Actions.
+#   6. test-e2e: if your playwright.config.ts uses a `webServer` block, prefer the
+#      git-recovered version of this job instead of the docker-compose approach below.
+# =============================================================================
+
 name: CI
 
 on:
   push:
-    branches: [develop, main, backend]
+    branches: [develop, main, backend, modification]
   pull_request:
     branches: [develop, main]
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Backend tests — run pytest against a real Postgres service container
+  # ---------------------------------------------------------------------------
   test-backend:
     runs-on: ubuntu-latest
 
@@ -29,7 +47,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5   # bumped from v4
         with:
           python-version: '3.12'
 
@@ -55,5 +73,158 @@ jobs:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        run: pytest tests/ -v
+
+  # ---------------------------------------------------------------------------
+  # 2. Frontend checks — lint, type-check, build
+  # ---------------------------------------------------------------------------
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+
+      - name: Type check
+        working-directory: ./frontend
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: ./frontend
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # 3. End-to-end tests — spin up the stack, run Playwright against it
+  # ---------------------------------------------------------------------------
+  test-e2e:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env for compose
         run: |
-          pytest tests/ -v
+          cat > .env <<EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          GRAFANA_USER=${{ secrets.GRAFANA_USER }}
+          GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
+          EOF
+
+      - name: Start backend + frontend + db
+        run: docker compose up -d --build db backend frontend
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Playwright
+        working-directory: ./frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Wait for frontend to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5173 > /dev/null; then echo "frontend up"; break; fi
+            echo "waiting for frontend... ($i)"; sleep 3
+          done
+
+      - name: Run E2E tests
+        working-directory: ./frontend
+        run: npx playwright test
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  # ---------------------------------------------------------------------------
+  # 4. Build images — validate the Dockerfiles build cleanly
+  # ---------------------------------------------------------------------------
+  build-images:
+    needs: [test-backend, test-frontend, test-e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build ./backend -t obrail-backend:ci
+
+      - name: Build frontend image
+        run: docker build ./frontend -t obrail-frontend:ci
+
+  # ---------------------------------------------------------------------------
+  # 5. Deploy-test — simulated deployment + smoke test, then tear down
+  # ---------------------------------------------------------------------------
+  deploy-test:
+    needs: build-images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env for compose
+        run: |
+          cat > .env <<EOF
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          GRAFANA_USER=${{ secrets.GRAFANA_USER }}
+          GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
+          EOF
+
+      - name: Simulated deployment (docker compose up)
+        run: docker compose up -d --build
+
+      - name: Wait for backend to be healthy
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8002/api/v1/health > /dev/null; then
+              echo "backend healthy"; exit 0
+            fi
+            echo "waiting for backend... ($i)"; sleep 5
+          done
+          echo "backend never became healthy"; docker compose logs backend; exit 1
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  # ---------------------------------------------------------------------------
+  # 6. Report — always runs, summarises every job into the run summary
+  # ---------------------------------------------------------------------------
+  report:
+    needs: [test-backend, test-frontend, test-e2e, build-images, deploy-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build summary
+        run: |
+          {
+            echo "## CI Pipeline Summary"
+            echo ""
+            echo "| Job | Result |"
+            echo "| --- | --- |"
+            echo "| Backend tests | ${{ needs.test-backend.result }} |"
+            echo "| Frontend tests | ${{ needs.test-frontend.result }} |"
+            echo "| E2E tests | ${{ needs.test-e2e.result }} |"
+            echo "| Build images | ${{ needs.build-images.result }} |"
+            echo "| Deploy (simulated) | ${{ needs.deploy-test.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
