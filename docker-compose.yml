@@ -44,6 +44,17 @@ services:
     networks:
       - obrail-net
 
+  # Service IA — expose le modèle de prédiction (Bloc E6.2) en production.
+  # Modèle LightGBM de détection des lignes sous-desservies.
+  # Endpoint /predict sur le port 8003, /metrics supervisé par Prometheus.
+  model-api:
+    build: ./model-api
+    container_name: obrail-mspr3_model_api
+    ports:
+      - "8003:8000"
+    networks:
+      - obrail-net
+
   # React Vite frontend. Serves the UI on port 3001.
   # Built from ./frontend/Dockerfile.
   # Calls the backend API via VITE_API_URL environment variable.
