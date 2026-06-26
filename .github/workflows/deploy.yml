@@ -1,15 +1,12 @@
-# =============================================================================
+
 # Deploy pipeline — simulated deployment, runs on push to main (final delivery)
 #
-# This is a *simulated* deploy (appropriate for the MSPR scope): it brings the
-# full stack up with docker compose, verifies the backend becomes healthy and
-# the API responds, then tears everything down. No real cloud target is needed.
 #
-# ⚠️ VERIFY:
+#  VERIFY:
 #   - Secrets POSTGRES_USER/PASSWORD/DB and GRAFANA_USER/GRAFANA_PASSWORD exist
 #     under Settings → Secrets and variables → Actions.
 #   - Backend health URL/port (assumes http://localhost:8002/api/v1/health).
-# =============================================================================
+
 
 name: Deploy
 
