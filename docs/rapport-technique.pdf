@@ -40,7 +40,7 @@ L'objectif de ce bloc (E6.3) est d'**industrialiser et mettre en production** ce
 
 La solution repose sur une architecture **micro-services conteneurisée**, où chaque composant est isolé dans son propre conteneur Docker et communique avec les autres via un réseau Docker dédié (`obrail-net`).
 
-> *(Schéma : `docs/architecture/system-architecture.png`)*
+> *(Schéma : `docs/architecture/system-architecture.webp`)*
 
 | Service | Rôle | Port (hôte) | Technologie |
 |---|---|---|---|
@@ -55,7 +55,7 @@ La solution repose sur une architecture **micro-services conteneurisée**, où c
 
 **Choix d'architecture justifiés :**
 
-- **PostgreSQL** : base relationnelle robuste, organisée en **modèle en étoile** — une table de faits `fact_routes` (448 liaisons ferroviaires européennes) reliée à trois dimensions : pays, types de train et modes de transport. *(Schéma : `docs/architecture/database-schema.png`)*
+- **PostgreSQL** : base relationnelle robuste, organisée en **modèle en étoile** — une table de faits `fact_routes` (448 liaisons ferroviaires européennes) reliée à trois dimensions : pays, types de train et modes de transport. *(Schéma : `docs/architecture/database-schema.webp`)*
 - **FastAPI** : framework Python moderne et performant, avec génération automatique de la documentation OpenAPI.
 - **React / Vite** : interface réactive et ergonomique, servie en production par Nginx.
 - **Prometheus + Grafana + Loki** : pile d'observabilité standard du secteur, séparant clairement les métriques (Prometheus) des journaux (Loki), le tout visualisé dans Grafana.
@@ -194,7 +194,7 @@ L'ensemble est **exécutable en local** et **intégré à la chaîne CI/CD**, as
 
 Un pipeline **GitHub Actions** automatise les phases de test, de build et de déploiement à chaque push ou pull request. Le fichier est versionné dans `.github/workflows/ci.yml`.
 
-> *(Schéma : `docs/architecture/cicd-pipeline.png`)*
+> *(Schéma : `docs/architecture/cicd-pipeline.webp`)*
 
 **Étapes du pipeline :**
 
