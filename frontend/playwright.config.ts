@@ -1,4 +1,9 @@
-import { defineConfig, devices } from '@playwright/test'
+import { defineConfig, devices } from '@playwright/test';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -9,7 +14,6 @@ export default defineConfig({
   reporter: 'html',
 
   use: {
-    // URL de base du frontend
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
@@ -22,11 +26,11 @@ export default defineConfig({
     },
   ],
 
-  // Lance le serveur de dev avant les tests si pas déjà démarré
   webServer: {
     command: 'npm run dev',
+    cwd: join(__dirname),               // __dirname pointe maintenant vers frontend/
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
   },
-})
+});

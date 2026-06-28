@@ -1,0 +1,345 @@
+# Rapport technique — ObRail Europe (MSPR Bloc E6.3)
+
+**Mise en production et supervision d'une solution applicative**
+*Développeur en Intelligence Artificielle et Data Science — RNCP 36581*
+
+---
+
+## Sommaire
+
+1. Introduction et contexte
+2. Architecture globale de la solution
+3. Conteneurisation et orchestration
+4. Procédures d'installation et d'exécution
+5. Backend — API REST
+6. Frontend — interface utilisateur
+7. Stratégie de tests
+8. Intégration et livraison continues (CI/CD)
+9. Supervision, observabilité et journalisation
+10. Déploiement de la solution d'intelligence artificielle
+11. Accessibilité numérique
+12. Sécurité et conformité RGPD
+13. Maintenance, correctifs et rollback
+14. Difficultés rencontrées et solutions
+15. Perspectives
+16. Conclusion
+
+---
+
+## 1. Introduction et contexte
+
+ObRail Europe est un observatoire indépendant spécialisé dans le ferroviaire et la mobilité durable. Son objectif est d'analyser les dessertes ferroviaires européennes et de promouvoir le train comme alternative bas-carbone à l'avion sur les trajets intra-européens.
+
+À l'issue de la MSPR précédente, ObRail disposait d'un socle technique constitué d'un entrepôt de données harmonisé et d'une API REST prototype. Cette solution restait toutefois au stade de **prototype non industrialisé** : déploiement manuel, absence de tests automatisés, aucune supervision.
+
+L'objectif de ce bloc (E6.3) est d'**industrialiser et mettre en production** cette solution : une application web complète, conteneurisée, testée et supervisée, prête à accueillir un modèle d'intelligence artificielle. Le présent rapport décrit l'architecture retenue, les choix techniques argumentés, et l'ensemble des dispositifs mis en place pour atteindre cet objectif.
+
+---
+
+## 2. Architecture globale de la solution
+
+La solution repose sur une architecture **micro-services conteneurisée**, où chaque composant est isolé dans son propre conteneur Docker et communique avec les autres via un réseau Docker dédié (`obrail-net`).
+
+> *(Schéma : `docs/architecture/system-architecture.webp`)*
+
+| Service | Rôle | Port (hôte) | Technologie |
+|---|---|---|---|
+| **db** | Base de données ferroviaire | 5434 | PostgreSQL 15 |
+| **backend** | API REST + métriques | 8002 | FastAPI (Python 3.12) |
+| **model-api** | API du modèle d'IA | 8003 | FastAPI + LightGBM |
+| **frontend** | Interface utilisateur | 3001 | React / Vite / Nginx |
+| **prometheus** | Collecte des métriques | 9090 | Prometheus |
+| **grafana** | Tableaux de bord | 3000 | Grafana |
+| **loki** | Stockage des logs | 3100 | Loki |
+| **promtail** | Collecte des logs | — | Promtail |
+
+**Choix d'architecture justifiés :**
+
+- **PostgreSQL** : base relationnelle robuste, organisée en **modèle en étoile** — une table de faits `fact_routes` (448 liaisons ferroviaires européennes) reliée à trois dimensions : pays, types de train et modes de transport. *(Schéma : `docs/architecture/database-schema.webp`)*
+- **FastAPI** : framework Python moderne et performant, avec génération automatique de la documentation OpenAPI.
+- **React / Vite** : interface réactive et ergonomique, servie en production par Nginx.
+- **Prometheus + Grafana + Loki** : pile d'observabilité standard du secteur, séparant clairement les métriques (Prometheus) des journaux (Loki), le tout visualisé dans Grafana.
+- **Réseau nommé `obrail-net`** : permet aux services de se joindre par leur nom (ex. le backend joint la base à l'adresse `db`), sans dépendre d'adresses IP.
+
+Les ports hôte sont volontairement décalés (8002, 8003, 3001, 5434, 3000) afin d'éviter les conflits avec les autres briques de la MSPR exécutées en parallèle.
+
+---
+
+## 3. Conteneurisation et orchestration
+
+L'ensemble de la solution est conteneurisé et orchestré via **Docker Compose**, garantissant la **reproductibilité** du déploiement : un évaluateur peut lancer toute l'application en une seule commande.
+
+**Principes appliqués :**
+
+- Un **Dockerfile** dédié pour chaque service applicatif (backend, frontend, model-api).
+- Un fichier **`docker-compose.yml`** unique orchestrant tous les services, commenté pour en faciliter la lecture.
+- **Ordre de démarrage maîtrisé** : la base de données dispose d'un *healthcheck* ; le backend n'attend son démarrage qu'une fois la base saine (`condition: service_healthy`).
+- **Persistance des données** via des volumes Docker nommés (`postgres_data` pour la base, `grafana_data` pour les tableaux de bord, `backend_logs` pour les journaux partagés), survivant aux redémarrages.
+- **Initialisation automatique** : au premier démarrage, la base est peuplée par quatre scripts SQL ordonnés (`database/init/`) : création du schéma, données de référence, dimensions, puis chargement des 448 trajets.
+
+---
+
+## 4. Procédures d'installation et d'exécution
+
+L'application est exécutable sur tout environnement disposant de Docker, sans installation de Python ni de Node.
+
+**Prérequis :** Docker ≥ 20.10 et Docker Compose v2.
+
+**Installation depuis zéro :**
+
+```bash
+# 1. Cloner le dépôt
+git clone https://github.com/EPSI-Portfolio/OBRail-MSPR3.git
+cd OBRail-MSPR3
+
+# 2. Créer le fichier d'environnement
+cp .env.example .env
+#    renseigner les mots de passe (base de données, Grafana) et les clés (API_KEY, SECRET_KEY)
+
+# 3. Lancer toute la stack
+docker compose up -d --build
+
+# 4. Vérifier que tout fonctionne
+docker compose ps
+```
+
+**Points d'accès après démarrage :**
+
+| Interface | URL |
+|---|---|
+| Frontend | http://localhost:3001 |
+| API backend (Swagger) | http://localhost:8002/api/v1/docs |
+| API IA (Swagger) | http://localhost:8003/docs |
+| Grafana | http://localhost:3000 |
+| Prometheus | http://localhost:9090 |
+
+**Arrêt et réinitialisation :**
+
+```bash
+docker compose down       # arrête (conserve les données)
+docker compose down -v    # arrête et supprime les volumes (remise à zéro complète)
+```
+
+---
+
+## 5. Backend — API REST
+
+Le backend, développé avec **FastAPI** (Python 3.12) et **SQLAlchemy**, expose les données ferroviaires harmonisées. Il a été finalisé et fiabilisé pour un niveau attendu en production.
+
+**Endpoints principaux :**
+
+| Méthode | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/health` | État de santé : API, connectivité base, uptime |
+| GET | `/api/v1/trajets` | Liste des trajets avec filtres et pagination |
+| GET | `/api/v1/trajets/{id}` | Détail complet d'un trajet (dont données CO₂) |
+| GET | `/api/v1/stats/volumes` | Nombre de trajets par pays et type de service |
+| GET | `/api/v1/stats/co2` | Synthèse des économies de CO₂ par pays |
+| GET | `/metrics` | Métriques Prometheus |
+
+L'endpoint `/api/v1/trajets` accepte de nombreux filtres (type de service, pays d'origine/destination, ville, opérateur, distance min/max) ainsi qu'une pagination (`limit`, `offset`).
+
+**Qualité et sécurité :**
+
+- **Gestion des erreurs maîtrisée** : validation des entrées via **Pydantic**, statuts HTTP cohérents, messages d'erreur clairs.
+- **Authentification par clé d'API** : les endpoints sont protégés par un en-tête `X-API-Key` (lorsque `API_KEY` est défini), avec journalisation d'audit signée (`SECRET_KEY`).
+- **Documentation automatique OpenAPI / Swagger**, accessible en ligne et exportée statiquement dans `docs/api/openapi.json`.
+- **Journalisation structurée** au format JSON, exploitable par la chaîne de supervision.
+
+---
+
+## 6. Frontend — interface utilisateur
+
+L'interface est une **application monopage (SPA)** moderne, destinée à un public non technique (institutions, ONG, opérateurs).
+
+**Stack technique :** React 19, TypeScript, Vite, Tailwind CSS, React Router (navigation), Recharts (graphiques), Axios (appels API), Playwright (tests E2E).
+
+**Fonctionnalités :**
+
+- **Consultation et filtrage** des trajets ferroviaires (par ville, type de train, opérateur).
+- **Tableau de bord statistiques** organisé en quatre onglets (montés à la demande) :
+  - **Couverture** — volume de trajets par pays (graphique en barres) et détail jour/nuit.
+  - **Top Trajets** — les liaisons de jour et de nuit les plus longues.
+  - **Émissions CO₂** — émissions par passager selon le mode de transport (camembert) et CO₂ économisé par pays.
+  - **Performance** — radar multi-critères comparant trains de jour et de nuit.
+- **Indicateurs clés** affichés en continu (trains de jour, trains de nuit, total des trajets, pays desservis).
+
+En production, le frontend est servi par **Nginx**, configuré pour gérer le routage SPA : toute route inconnue est redirigée vers `index.html`, permettant l'accès direct aux pages internes.
+
+---
+
+## 7. Stratégie de tests
+
+Une stratégie de tests complète garantit la stabilité avant la mise en production. Le détail est documenté dans `backend/tests/README.md`.
+
+**Tests backend (Pytest) :**
+
+- **Tests d'intégration** : vérifient les endpoints REST et l'interopérabilité backend ↔ base de données.
+- **Tests unitaires** : valident la logique métier.
+- **Tests de sécurité** : vérifient la résistance aux injections SQL et la validation des entrées.
+
+**Tests de charge (Locust) :**
+
+Deux profils d'utilisateurs sont simulés pour évaluer le comportement sous sollicitation : un **utilisateur normal** (navigation réaliste, 1-3 s entre requêtes) et un **analyste intensif** (requêtes rapides, 0,1-0,5 s). Les scénarios s'exécutent par exemple avec 50 utilisateurs simultanés et produisent un rapport HTML de performance.
+
+**Tests end-to-end (Playwright) :**
+
+Les tests E2E simulent le parcours utilisateur réel (navigation, recherche, affichage des graphiques). Les graphiques étant dans des onglets montés à la demande, les tests cliquent sur l'onglet concerné avant de vérifier son contenu via des identifiants stables (`id` / `data-testid`).
+
+L'ensemble est **exécutable en local** et **intégré à la chaîne CI/CD**, assurant la **non-régression** : chaque modification est automatiquement vérifiée contre tous les tests avant intégration.
+
+---
+
+## 8. Intégration et livraison continues (CI/CD)
+
+Un pipeline **GitHub Actions** automatise les phases de test, de build et de déploiement à chaque push ou pull request. Le fichier est versionné dans `.github/workflows/ci.yml`.
+
+> *(Schéma : `docs/architecture/cicd-pipeline.webp`)*
+
+**Étapes du pipeline :**
+
+1. **test-backend** — exécution des tests Pytest sur une base PostgreSQL éphémère.
+2. **test-frontend** — lint, vérification des types, build.
+3. **test-e2e** — tests Playwright (parcours frontend ↔ backend).
+4. **build-images** — construction des images Docker.
+5. **deploy-test** — déploiement simulé : `docker compose up` et vérification que la stack démarre et répond.
+6. **report** — synthèse de réussite/échec dans GitHub.
+
+Les trois phases de test s'exécutent en parallèle ; le build n'a lieu que si elles réussissent toutes. La **gestion des secrets** (mots de passe, clés) est assurée par les variables d'environnement, jamais codées en dur : le fichier `.env` n'est pas versionné, et `.env.example` documente les variables attendues. Un workflow `deploy.yml` réalise un déploiement simulé lors d'un push sur `main`.
+
+---
+
+## 9. Supervision, observabilité et journalisation
+
+La solution est **supervisée en continu** par une pile d'observabilité complète, couvrant la compétence *« Superviser le fonctionnement de la solution »*. Les métriques indiquent *qu'*un événement s'est produit ; les logs indiquent *ce qui* s'est passé.
+
+**Métriques (Prometheus + Grafana) :**
+
+Le backend et le service IA exposent chacun un endpoint `/metrics` (via `prometheus-fastapi-instrumentator`), scrapé par Prometheus toutes les 15 secondes (jobs `obrail-api` et `model-api`). Le tableau de bord Grafana présente huit panneaux :
+
+- Total des requêtes HTTP et débit (req/s)
+- Taux d'erreurs (4xx + 5xx)
+- Temps de réponse moyen et 95ᵉ percentile (p95) par endpoint
+- Requêtes par endpoint
+- Répartition par code de statut HTTP
+- Requêtes actives
+
+**Journalisation (Loki + Promtail) :**
+
+Le backend produit des **logs JSON structurés** (`JsonFormatter` dans `app/core/logging.py`), écrits sur le volume partagé `backend_logs`. Promtail tail ce fichier, parse chaque ligne JSON, promeut le niveau (`level`) en label, et pousse les logs vers Loki sous le label `job="obrail-backend"`. Ils deviennent interrogeables dans Grafana (Explore) en LogQL :
+
+```logql
+{job="obrail-backend"}                  # tous les logs
+{job="obrail-backend", level="ERROR"}   # uniquement les erreurs
+```
+
+L'état des cibles supervisées est vérifiable sur `http://localhost:9090/targets`. Cette observabilité permet la détection des pics d'erreurs, des endpoints lents et des tendances, dans une démarche d'amélioration continue.
+
+---
+
+## 10. Déploiement de la solution d'intelligence artificielle
+
+Le cahier des charges demande une solution **prête à accueillir** un modèle d'IA. Au-delà de cette exigence, l'équipe a choisi de **déployer et superviser dès à présent** le modèle développé au Bloc E6.2 (détection des lignes ferroviaires sous-desservies).
+
+**Mise en production du modèle :**
+
+Le modèle (LightGBM) est exposé sous forme d'un service conteneurisé dédié, `model-api`, intégré à la stack au même titre que les autres services :
+
+- **Déployé** : l'endpoint `POST /predict` reçoit les caractéristiques d'une liaison ferroviaire (pays de départ, type de service, distance, émissions CO₂) et renvoie une prédiction (`is_underserved`) accompagnée d'une probabilité.
+- **Supervisé** : le service expose `/metrics`, scrapé par Prometheus (job `model-api`), et est donc monitoré dans Grafana comme le reste de la solution.
+
+**Exemple de prédiction :**
+
+```bash
+curl -X POST http://localhost:8003/predict \
+  -H "Content-Type: application/json" \
+  -d '{"departure_country":"FR","service_type":"night","distance_km":450.0,"co2_per_pkm":28.3,"arrival_country":"DE"}'
+```
+
+Réponse :
+
+```json
+{"is_underserved":1,"probability":0.9984,"label":"sous-desservie"}
+```
+
+Le modèle ayant été entraîné sur le jeu de données du Bloc E6.2, l'**harmonisation complète des schémas de données** entre les deux blocs — permettant d'alimenter le modèle directement depuis la base ObRail — constitue l'étape d'intégration applicative suivante (voir Perspectives).
+
+---
+
+## 11. Accessibilité numérique
+
+L'interface est conçue conformément au **RGAA**, qui transpose en France la norme européenne **EN 301 549** et les recommandations **WCAG 2.1 niveau AA**.
+
+**Techniques mises en œuvre :** lien d'évitement, indicateurs de focus visibles, structure sémantique (région principale `#main-content`, hiérarchie de titres), système d'onglets ARIA (`role="tablist"`, `role="tab"`, `role="tabpanel"` avec `aria-selected` et `aria-controls`), icônes décoratives `aria-hidden`, langue de page déclarée (`lang="fr"`), interface responsive et tailles de police fluides, thèmes clair et sombre.
+
+**Résultats d'audit (Lighthouse) :** 91/100 (page Trajets), 95/100 (page Statistiques).
+
+La déclaration d'accessibilité complète, incluant les limites connues et les axes d'amélioration, figure dans `docs/accessibilite.md`.
+
+---
+
+## 12. Sécurité et conformité RGPD
+
+**Sécurité :**
+
+- Validation systématique des entrées (Pydantic) et gestion maîtrisée des erreurs.
+- Protection contre les injections SQL (requêtes paramétrées via SQLAlchemy), vérifiée par des tests dédiés.
+- **Authentification par clé d'API** (`X-API-Key`) et journalisation d'audit signée.
+- Gestion des secrets via variables d'environnement ; aucun identifiant codé en dur ; `.env` non versionné.
+
+**RGPD :**
+
+L'application traite exclusivement des **données ferroviaires** (trajets, distances, émissions) et **aucune donnée à caractère personnel**. Le périmètre RGPD direct est donc limité. Néanmoins, conformément aux exigences du cahier des charges, les principes de développement responsable sont appliqués : minimisation des données collectées, documentation des jeux de données, transparence et traçabilité via la journalisation, et sécurisation des accès. Cette démarche garantit la conformité aux bonnes pratiques de la CNIL même en l'absence de données personnelles.
+
+---
+
+## 13. Maintenance, correctifs et rollback
+
+**Workflow de mise à jour :**
+
+Le projet applique une discipline de branches stricte garantissant la stabilité de la production :
+
+- Tout développement s'effectue sur la branche **`develop`**.
+- La branche **`main`** (production) n'est mise à jour que via une **pull request validée**, une fois la solution testée et stable. Les modifications réintègrent toujours `develop` avant d'atteindre `main` ; aucun push direct sur `main` n'est autorisé.
+
+Cette approche constitue une **prévention** : le code non testé n'atteint jamais la production.
+
+**Correctifs :**
+
+Un dysfonctionnement détecté est corrigé sur `develop`, validé automatiquement par la chaîne CI/CD (qui rejoue l'ensemble des tests), puis intégré à `main` par pull request.
+
+**Rollback (retour arrière) :**
+
+En cas de dysfonctionnement constaté après une mise en production, un retour arrière est possible : chaque version de `main` correspondant à un commit Git, il suffit de revenir au commit précédent (`git revert`) puis de reconstruire les images Docker (`docker compose up -d --build`). La **persistance des données étant assurée par les volumes Docker**, le retour arrière du code n'affecte pas la base de données. Une réinitialisation complète reste possible via `docker compose down -v` suivi de `docker compose up -d`.
+
+---
+
+## 14. Difficultés rencontrées et solutions
+
+**Conteneurisation sous WSL :** des erreurs de montage de fichiers de configuration (Prometheus) et des conflits de conteneurs obsolètes ont été résolus par la recréation propre des conteneurs (`docker compose down && up`) plutôt que par redémarrage partiel.
+
+**Logs non structurés :** le backend produisait initialement des logs en texte brut car un conteneur exécutait une ancienne image. La reconstruction de l'image (`--build`) a rétabli les logs JSON attendus par Loki.
+
+**Tests E2E :** des échecs Playwright provenaient d'une adresse IP codée en dur dans la configuration ; le passage à `localhost` a rétabli l'exécution.
+
+**Accessibilité du routage SPA :** l'absence de configuration Nginx provoquait des erreurs 404 sur les routes directes. L'ajout d'une configuration `try_files` redirigeant vers `index.html` a corrigé le problème et amélioré les scores d'accessibilité.
+
+**Déploiement du modèle IA :** l'image du service IA a été allégée en ne conservant que les dépendances et fichiers strictement nécessaires à l'inférence, réduisant fortement sa taille et son temps de construction.
+
+---
+
+## 15. Perspectives
+
+- **Harmonisation des données entre blocs** : aligner les schémas de données E6.2 et E6.3 pour alimenter le modèle directement depuis la base ObRail, permettant une intégration applicative complète (prédiction depuis l'interface).
+- **Enrichissement de la supervision IA** : ajout de tableaux de bord Grafana dédiés au modèle (volumétrie des prédictions, dérive éventuelle), alimentant la *feedback loop* MLOps.
+- **Alerting** : configuration de seuils d'alerte (taux d'erreurs, latence) pour une détection automatique d'incidents.
+- **Accessibilité** : campagne de tests manuels sur lecteurs d'écran et correction des contrastes secondaires.
+- **Tests** : extension de la couverture E2E et ajout de tests dédiés au service IA dans la CI.
+
+---
+
+## 16. Conclusion
+
+La solution ObRail Europe est passée d'un **prototype non industrialisé** à une **application complète, conteneurisée, testée et supervisée**, déployable en une seule commande. L'ensemble des exigences du cahier des charges est couvert : industrialisation Docker, interface accessible, stratégie de tests complète (intégration, sécurité, charge, E2E) intégrée à une chaîne CI/CD, supervision en temps réel (métriques et journaux), conformité RGPD et sécurité.
+
+Au-delà des attentes, l'équipe a **déployé et supervisé dès à présent le modèle d'intelligence artificielle** du Bloc E6.2, démontrant que la solution n'est pas seulement *prête à accueillir* un modèle, mais en héberge déjà un en production. La solution constitue ainsi un socle robuste et maintenable pour les évolutions futures du projet.

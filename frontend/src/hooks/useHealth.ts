@@ -39,8 +39,8 @@ export function useHealth() {
   }, [])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     check()
-    // Polling automatique toutes les 30 secondes
     const interval = setInterval(check, HEALTH_POLL_INTERVAL)
     return () => clearInterval(interval)
   }, [check])

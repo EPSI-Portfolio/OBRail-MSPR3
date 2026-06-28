@@ -28,6 +28,7 @@ export function useStats() {
       )
   }
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchStats() }, [])
 
   const barChartData: BarChartEntry[] = state.data

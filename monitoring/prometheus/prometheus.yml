@@ -7,3 +7,8 @@ scrape_configs:
     static_configs:
       - targets: ['backend:8000']
     metrics_path: '/metrics'
+
+  - job_name: 'model-api'
+    static_configs:
+      - targets: ['model-api:8000']
+    metrics_path: '/metrics'
